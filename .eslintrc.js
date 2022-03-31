@@ -5,7 +5,8 @@ module.exports = {
         jest: true // 支持jest
     },
     extends: [
-        'standard'
+        'standard',
+        'eslint:recommended'
     ],
     parser: '@typescript-eslint/parser',
     parserOptions: {
