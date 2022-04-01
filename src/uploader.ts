@@ -1,20 +1,84 @@
 import Event from './event'
 import UploadFile from './file'
 
-export default class Uploader extends Event {
-    private files: UploadFile[] = [];
-    private opts = {};
+type SafeElement = Element & HTMLDivElement & HTMLInputElement;
+interface UploaderOptions {
+    dom: SafeElement[]
+    multiple: boolean
+    url: string
+    method: 'GET' | 'POST' | 'PUT' | 'OPTIONS'
+    data: Record<string, any>
+    headers: Record<string, any>
+    attributes: Record<string, string>
+}
 
-    constructor (options) {
+export default class Uploader extends Event {
+    private files: UploadFile[] = []
+    private opts: UploaderOptions = {
+        dom: [],
+        multiple: false,
+        url: '/',
+        method: 'POST',
+        data: {},
+        headers: {},
+        attributes: {}
+    }
+
+    constructor (options: Partial<UploaderOptions>) {
         super()
-        this.opts = {
+        const opts = {
             ...this.opts,
             ...options
         }
+        this.opts = opts
+
+        this.handleUploadDom(Array.isArray(opts.dom) ? opts.dom : [opts.dom])
     }
 
-    public upload () {
+    handleUploadDom (domNodes: SafeElement[]) {
+        const opts = this.opts
+        domNodes.forEach((node) => {
+            let input: HTMLInputElement
+            if (node.tagName.toLocaleLowerCase() === 'input' && node.type === 'file') {
+                input = node
+            } else {
+                input = document.createElement('input')
+                input.setAttribute('type', 'file')
 
+                input.style = {
+                    ...input.style,
+                    visibility: 'hidden',
+                    position: 'absolute',
+                    width: '1px',
+                    height: '1px'
+                }
+
+                node.appendChild(input)
+                node.addEventListener('click', () => {
+                    input.click()
+                }, false)
+            }
+
+            if (this.opts.multiple) {
+                input.setAttribute('multiple', 'multiple')
+            }
+
+            Object.keys(opts.attributes).forEach(key => {
+                input.setAttribute(key, opts.attributes[key])
+            })
+
+            input.addEventListener('change', (e) => {
+                const target = e.target as HTMLInputElement
+                if (target.value && target.files) {
+                    this.addFiles(target.files, e)
+                    target.value = ''
+                }
+            }, false)
+        })
+    }
+
+    upload () {
+        this.emit('uploadStart')
     }
 
     // 将上传失败的文件重试
@@ -33,9 +97,9 @@ export default class Uploader extends Event {
     getSize () {}
 
     // 添加一个文件
-    addFile (file: UploadFile, event) {}
+    addFile (file: FileList, event) {}
 
-    addFiles (fileList: UploadFile[], event) {}
+    addFiles (fileList: FileList, event) {}
 
     removeFile (file) {}
 }
