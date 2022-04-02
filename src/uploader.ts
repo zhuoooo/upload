@@ -44,14 +44,16 @@ export default class Uploader extends Event {
             } else {
                 input = document.createElement('input')
                 input.setAttribute('type', 'file')
-
-                input.style = {
-                    ...input.style,
+                const style = {
                     visibility: 'hidden',
                     position: 'absolute',
                     width: '1px',
                     height: '1px'
                 }
+
+                Object.keys(style).forEach(key => {
+                    input.style[key] = style[key]
+                })
 
                 node.appendChild(input)
                 node.addEventListener('click', () => {
