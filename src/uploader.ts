@@ -7,7 +7,8 @@ export interface UploaderOptions {
     dom: SafeElement[]
     multiple: boolean
     url: string
-    method: 'GET' | 'POST' | 'PUT' | 'OPTIONS'
+    withCredentials: boolean
+    method: 'POST' | 'PUT' | 'OPTIONS'
     data: Record<string, any>
     headers: Record<string, any>
     attributes: Record<string, string>
@@ -18,6 +19,7 @@ export default class Uploader extends UEvent {
     private opts: UploaderOptions = {
         dom: [],
         multiple: false,
+        withCredentials: false,
         url: '/',
         method: 'POST',
         data: {},
@@ -90,17 +92,22 @@ export default class Uploader extends UEvent {
     // 将上传失败的文件重试
     resume () {}
 
-    // 暂停上传
-    pause () {}
-
     // 取消全部文件的上传
-    cancel () {}
+    cancel () {
+        this.files.forEach(item => this.removeFile(item))
+    }
 
     // 总进度
-    progress () {}
+    progress () {
+        this.emit('progress')
+    }
 
     // 获取总的文件大小，单位 b
-    getSize () {}
+    getSize () {
+        return this.files.map(file => file.size).reduce((total = 0, curr) => {
+            return total + curr
+        })
+    }
 
     // 添加一个文件
     addFile (file: File, event: Event) {
@@ -118,8 +125,8 @@ export default class Uploader extends UEvent {
                 const fileID = this.genUniqueID(file)
                 const uploadFile = new UploadFile(file, fileID, opts)
 
-                uploadFile.on('cancelFile', () => {
-                    this.removeFile(uploadFile)
+                uploadFile.on('progress', () => {
+                    this.progress()
                 })
 
                 this.emit('fileAdded', file, event)
@@ -141,7 +148,7 @@ export default class Uploader extends UEvent {
     removeFile (file: UploadFile) {
         const fileIndex = this.files.findIndex(item => item === file)
         this.files.splice(fileIndex, 1)
-        file.abort()
+        file.abort(true)
         this.emit('fileRemoved', file)
     }
 

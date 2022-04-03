@@ -2,106 +2,181 @@
 import UEvent from './event'
 import { UploaderOptions } from './uploader'
 
-type FileOptions = Pick<UploaderOptions, 'url'|'method'|'headers'|'data'>
+type FileOptions = Pick<UploaderOptions, 'url' | 'method' | 'headers' | 'data' | 'withCredentials'>
 
+type Status = 'success' | 'error' | 'uploading' | 'pending' | 'reading'
 export default class UploadFile extends UEvent {
     private raw: File
     private id: string
-    private xhr: XMLHttpRequest|null = new XMLHttpRequest()
+    private xhr: XMLHttpRequest | null = new XMLHttpRequest()
     private error: boolean = false
-   private opts: FileOptions
+    private opts: FileOptions
 
-   constructor (file: File, id, options: FileOptions) {
-       super()
-       this.raw = file
-       this.id = id
-       this.opts = options
+    private retries = 0
+    private pendingRetry = false
 
-       this.bootstrap()
-   }
+    private loaded: number = 0 // 已发送的文件大小
+    private total: number = 0 // 传输的大小
 
-   private getType (): string {
-       return this.raw.type
-   }
+    constructor (file: File, id, options: FileOptions) {
+        super()
+        this.raw = file
+        this.id = id
+        this.opts = options
 
-   private getName (): string {
-       return this.raw.name
-   }
+        this.bootstrap()
+    }
 
-   private getPath () {
-       return this.raw.webkitRelativePath || this.raw.name
-   }
+    get message (): string {
+        return this.xhr?.responseText || ''
+    }
 
-   progressHandler () {}
+    get progress () {
+        if (this.pendingRetry) {
+            return 0
+        }
+        const { loaded, total } = this
 
-   doneHandler () {}
+        if (['success', 'error'].includes(this.status)) {
+            return 1
+        } else if (this.status === 'pending') {
+            return 0
+        } else {
+            return total > 0 ? loaded / total : 0
+        }
+    }
 
-   send () {
-       const options = this.opts
-       const xhr = new XMLHttpRequest()
+    get status (): Status {
+        const { xhr } = this
+        if (this.pendingRetry) {
+            // if pending retry then that's effectively the same as actively uploading,
+            // there might just be a slight delay before the retry starts
+            return 'uploading'
+        } else if (!xhr) {
+            return 'pending'
+        } else if (xhr.readyState < 4) {
+            // Status is really 'OPENED', 'HEADERS_RECEIVED'
+            // or 'LOADING' - meaning that stuff is happening
+            return 'uploading'
+        } else {
+            const xhrStatus = xhr.status
+            if (xhrStatus >= 200 && xhrStatus < 299) {
+                // HTTP 200, perfect
+                // HTTP 202 Accepted - The request has been accepted for processing, but the processing has not been completed.
+                return 'success'
+            } else if (xhrStatus >= 400) {
+                // HTTP 413/415/500/501, permanent error
+                return 'error'
+            } else {
+                // this should never happen, but we'll reset and queue a retry
+                // a likely case for this would be 503 service unavailable
+                this.abort()
+                return 'pending'
+            }
+        }
+    }
 
-       xhr.upload.addEventListener('progress', this.progressHandler, false)
-       xhr.addEventListener('load', this.doneHandler, false)
-       xhr.addEventListener('error', this.doneHandler, false)
-       this.xhr = xhr
-       const data = new FormData()
+    get isUploading () {
+        return this.status === 'uploading'
+    }
 
-       Object.entries(options.headers).forEach(([header, value]) => {
-           xhr.setRequestHeader(header, value)
-       })
+    get isComplete () {
+        return !['success', 'error', 'uploading', 'pending'].includes(this.status)
+    }
 
-       data.append('file', this.raw, this.getName())
-       // data.append('filename', this.getName())
+    get extension () {
+        const name = this.filename
+        return name.substr((~-name.lastIndexOf('.') >>> 0) + 2).toLowerCase()
+    }
 
-       xhr.open(options.method, options.url, true)
-       xhr.send(data)
-   }
+    get size () {
+        return this.raw.size
+    }
 
-   pause () {
+    get filename (): string {
+        return this.raw.name
+    }
 
-   }
+    private getPath () {
+        return this.raw.webkitRelativePath || this.raw.name
+    }
 
-   resume () {
+    progressHandler (event: ProgressEvent<XMLHttpRequestEventTarget>) {
+        if (event.lengthComputable) {
+            this.loaded = event.loaded
+            this.total = event.total
+        }
 
-   }
+        this.emit('progress', event)
+    }
 
-   abort (reset = false) {
-       const xhr = this.xhr
-       this.xhr = null
-       xhr?.abort()
-   }
+    doneHandler (event: ProgressEvent<XMLHttpRequestEventTarget>) {
+        const status = this.status
 
-   cancel () {
-       this.emit('cancelFile')
-   }
+        if (['success', 'error'].includes(status)) {
+            this.emit(status, this.message)
+        }
+    }
 
-   retry () {
+    send () {
+        const xhr = new XMLHttpRequest()
 
-   }
+        const data = this.prepareXhrRequest(xhr)
+        xhr.send(data)
+        this.xhr = xhr
+    }
 
-   bootstrap () {
-       this.abort()
-       this.error = false
-   }
+    prepareXhrRequest (xhr) {
+        const options = this.opts
+        const { method, url, withCredentials, data } = options
+        const requestBody = new FormData()
 
-   progress () {
+        xhr.upload.addEventListener('progress', (e) => {
+            this.progressHandler(e)
+        }, false)
+        xhr.addEventListener('load', (e) => {
+            this.doneHandler(e)
+        }, false)
+        xhr.addEventListener('error', (e) => {
+            this.doneHandler(e)
+        }, false)
 
-   }
+        requestBody.append('file', this.raw, this.filename)
+        Object.entries(data).forEach(([key, value]) => {
+            (requestBody as FormData).append(key, value)
+        })
 
-   isUploading () {
+        Object.entries(options.headers).forEach(([header, value]) => {
+            xhr.setRequestHeader(header, value)
+        })
 
-   }
+        xhr.withCredentials = withCredentials
+        xhr.open(method.toUpperCase(), url, true)
+        return requestBody
+    }
 
-   isComplete () {
+    resume () {
 
-   }
+    }
 
-   sizeUploaded () {
+    abort (reset = false) {
+        const xhr = this.xhr
+        if (reset) {
+            this.xhr = null
+        }
+        xhr?.abort()
+    }
 
-   }
+    cancel () {
+        this.abort()
+    }
 
-   getExtension () {
-       const name = this.getName()
-       return name.substr((~-name.lastIndexOf('.') >>> 0) + 2).toLowerCase()
-   }
+    retry () {
+
+    }
+
+    bootstrap () {
+        this.abort(true)
+        this.error = false
+    }
 }
