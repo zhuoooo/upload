@@ -5,6 +5,10 @@ module.exports = {
             modules: false
         }]
     ],
+    targets: {
+        ie: 10
+    },
     plugins: [
+        ["@babel/plugin-transform-runtime"]
     ]
 }

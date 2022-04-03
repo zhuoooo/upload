@@ -1,3 +1,4 @@
+import typescript from 'rollup-plugin-typescript2' // 处理typescript
 import { nodeResolve } from '@rollup/plugin-node-resolve' // 解析 node_modules 中的模块
 import commonjs from '@rollup/plugin-commonjs' // cjs => esm
 import alias from '@rollup/plugin-alias' // alias 和 reslove 功能
@@ -13,9 +14,11 @@ const pkgName = 'upload'
 const banner =
     '/*!\n' +
     ` * ${name} v${version}\n` +
-    ` * (c) 2014-${new Date().getFullYear()} ${author}\n` +
+    ` * (c) 2022-${new Date().getFullYear()} ${author}\n` +
     ' * Released under the MIT License.\n' +
     ' */'
+const isDev = process.env.NODE_ENV !== 'production'
+console.log(process.env.NODE_ENV)
 
 export default {
     input: 'src/index.ts',
@@ -32,18 +35,20 @@ export default {
             format: 'umd',
             name: pkgName,
             banner,
-            plugins: [terser()]
+            plugins: [!isDev && terser()]
         },
         {
             file: `dist/${pkgName}.cjs.js`,
             format: 'cjs',
             name: pkgName,
-            banner
+            banner,
+            plugins: [!isDev && terser()]
         },
         {
             file: `dist/${pkgName}.esm.js`,
             format: 'es',
-            banner
+            banner,
+            plugins: [!isDev && terser()]
         }
     ],
     // 注意 plugin 的使用顺序
@@ -66,6 +71,9 @@ export default {
             include: ['src/**'],
             exclude: ['node_modules/**']
         }),
-        babel({ babelHelpers: 'bundled' })
+        babel({ babelHelpers: 'bundled' }),
+        typescript({
+            sourceMap: false
+        })
     ]
 }

@@ -9,10 +9,10 @@ export default {
         serve({
             port: 8080,
             contentBase: ['dist', 'examples/brower'],
-            openPage: 'index.html',
+            openPage: 'index.html'
         }),
         livereload({
-            watch: 'examples/brower',
+            watch: 'examples/brower'
         })
     ]
 }
