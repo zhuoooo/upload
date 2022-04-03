@@ -1,8 +1,9 @@
-import Event from './event'
+import UEvent from './event'
 import UploadFile from './file'
 
 type SafeElement = Element & HTMLDivElement & HTMLInputElement;
-interface UploaderOptions {
+
+export interface UploaderOptions {
     dom: SafeElement[]
     multiple: boolean
     url: string
@@ -12,7 +13,7 @@ interface UploaderOptions {
     attributes: Record<string, string>
 }
 
-export default class Uploader extends Event {
+export default class Uploader extends UEvent {
     private files: UploadFile[] = []
     private opts: UploaderOptions = {
         dom: [],
@@ -51,8 +52,8 @@ export default class Uploader extends Event {
                     height: '1px'
                 }
 
-                Object.keys(style).forEach(key => {
-                    input.style[key] = style[key]
+                Object.entries(style).forEach(([key, value]) => {
+                    input.style[key] = value
                 })
 
                 node.appendChild(input)
@@ -65,8 +66,8 @@ export default class Uploader extends Event {
                 input.setAttribute('multiple', 'multiple')
             }
 
-            Object.keys(opts.attributes).forEach(key => {
-                input.setAttribute(key, opts.attributes[key])
+            Object.entries(opts.attributes).forEach(([key, value]) => {
+                input.setAttribute(key, value)
             })
 
             input.addEventListener('change', (e) => {
@@ -81,6 +82,9 @@ export default class Uploader extends Event {
 
     upload () {
         this.emit('uploadStart')
+        this.files.forEach(item => {
+            item.send()
+        })
     }
 
     // 将上传失败的文件重试
@@ -99,9 +103,50 @@ export default class Uploader extends Event {
     getSize () {}
 
     // 添加一个文件
-    addFile (file: FileList, event) {}
+    addFile (file: File, event: Event) {
+        const fileList = new FileList()
+        fileList[0] = file
+        this.addFiles(fileList, event)
+    }
 
-    addFiles (fileList: FileList, event) {}
+    addFiles (files: FileList, event: Event) {
+        const opts = this.opts
+        const uploadFiles: UploadFile[] = []
+        for (let i = 0; i < files.length; ++i) {
+            const file = files[i]
+            if (file.size > 0 && !(file.size % 4096 === 0 && (file.name === '.'))) {
+                const fileID = this.genUniqueID(file)
+                const uploadFile = new UploadFile(file, fileID, opts)
 
-    removeFile (file) {}
+                uploadFile.on('cancelFile', () => {
+                    this.removeFile(uploadFile)
+                })
+
+                this.emit('fileAdded', file, event)
+                uploadFiles.push(uploadFile)
+            }
+        }
+
+        uploadFiles.forEach(file => {
+            if (!opts.multiple && this.files.length > 0) {
+                this.removeFile(this.files[0])
+            }
+
+            this.files.push(file)
+        })
+
+        this.emit('filesSubmitted', files, event)
+    }
+
+    removeFile (file: UploadFile) {
+        const fileIndex = this.files.findIndex(item => item === file)
+        this.files.splice(fileIndex, 1)
+        file.abort()
+        this.emit('fileRemoved', file)
+    }
+
+    private genUniqueID (file: File) {
+        const relativePath = file.webkitRelativePath || file.name
+        return file.size + '-' + relativePath.replace(/[^0-9a-zA-Z_-]/img, '')
+    }
 }

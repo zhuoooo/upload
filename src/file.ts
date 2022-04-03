@@ -1,65 +1,107 @@
 
-export default class UploadFile {
+import UEvent from './event'
+import { UploaderOptions } from './uploader'
+
+type FileOptions = Pick<UploaderOptions, 'url'|'method'|'headers'|'data'>
+
+export default class UploadFile extends UEvent {
     private raw: File
-    private type: string
-    private name: string
-    private size: number
-    private path: string
-    private paused = false
+    private id: string
+    private xhr: XMLHttpRequest|null = new XMLHttpRequest()
+    private error: boolean = false
+   private opts: FileOptions
 
-    constructor (file: File, id) {
-        this.raw = file
-        this.type = file.type
-        this.name = file.name
-        this.size = file.size
-        this.path = file.webkitRelativePath || file.name
-    }
+   constructor (file: File, id, options: FileOptions) {
+       super()
+       this.raw = file
+       this.id = id
+       this.opts = options
 
-    pause () {
+       this.bootstrap()
+   }
 
-    }
+   private getType (): string {
+       return this.raw.type
+   }
 
-    resume () {
+   private getName (): string {
+       return this.raw.name
+   }
 
-    }
+   private getPath () {
+       return this.raw.webkitRelativePath || this.raw.name
+   }
 
-    abort (reset) {
+   progressHandler () {}
 
-    }
+   doneHandler () {}
 
-    cancel () {
+   send () {
+       const options = this.opts
+       const xhr = new XMLHttpRequest()
 
-    }
+       xhr.upload.addEventListener('progress', this.progressHandler, false)
+       xhr.addEventListener('load', this.doneHandler, false)
+       xhr.addEventListener('error', this.doneHandler, false)
+       this.xhr = xhr
+       const data = new FormData()
 
-    retry () {
+       Object.entries(options.headers).forEach(([header, value]) => {
+           xhr.setRequestHeader(header, value)
+       })
 
-    }
+       data.append('file', this.raw, this.getName())
+       // data.append('filename', this.getName())
 
-    bootstrap () {
+       xhr.open(options.method, options.url, true)
+       xhr.send(data)
+   }
 
-    }
+   pause () {
 
-    progress () {
+   }
 
-    }
+   resume () {
 
-    isUploading () {
+   }
 
-    }
+   abort (reset = false) {
+       const xhr = this.xhr
+       this.xhr = null
+       xhr?.abort()
+   }
 
-    isComplete () {
+   cancel () {
+       this.emit('cancelFile')
+   }
 
-    }
+   retry () {
 
-    sizeUploaded () {
+   }
 
-    }
+   bootstrap () {
+       this.abort()
+       this.error = false
+   }
 
-    getType () {
+   progress () {
 
-    }
+   }
 
-    getExtension () {
-        return this.name.substr((~-this.name.lastIndexOf('.') >>> 0) + 2).toLowerCase()
-    }
+   isUploading () {
+
+   }
+
+   isComplete () {
+
+   }
+
+   sizeUploaded () {
+
+   }
+
+   getExtension () {
+       const name = this.getName()
+       return name.substr((~-name.lastIndexOf('.') >>> 0) + 2).toLowerCase()
+   }
 }

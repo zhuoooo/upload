@@ -4,7 +4,7 @@ interface EventItem {
     [eventName: string]: Array<EventCb>;
 }
 
-export default class Event {
+export default class UEvent {
     private events: EventItem = {}
 
     on (event: string, callback: EventCb) {

@@ -1,12 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
+
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>uploader.js nodejs demo</title>
+    <meta charset="utf-8" />
 </head>
+
 <body>
-    
+    <div id="frame">
+        <button type="button" id="select">选择文件</button>
+        <button type="button" id="upload">上传文件</button>
+    </div>
+    <script type="module">
+        import Uploader from './upload.esm.js'
+
+        let dom = document.querySelector('#select')
+        window.upload = new Uploader({
+            dom: dom,
+            url: 'http://localhost:8000/upload',
+            method: 'POST'
+        })
+
+        document.querySelector('#upload').addEventListener('click', () => {
+            upload.upload()
+        })
+    </script>
 </body>
+
 </html>
