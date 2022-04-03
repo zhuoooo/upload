@@ -18,7 +18,6 @@ const banner =
     ' * Released under the MIT License.\n' +
     ' */'
 const isDev = process.env.NODE_ENV !== 'production'
-console.log(process.env.NODE_ENV)
 
 export default {
     input: 'src/index.ts',
