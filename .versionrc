@@ -1,7 +1,7 @@
 {
     "header": "# 更新历史 \n\n",
     "skip": {
-        "bump": true,
+        "bump": false,
         "changelog": false,
         "commit": true, 
         "tag": true 

@@ -1,6 +1,6 @@
 {
   "name": "plduoa",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "一个支持esm的上传库",
   "main": "upload.js",
   "module": "dist/upload.esm.js",
@@ -20,7 +20,8 @@
     "pub": "npm publish --access=public",
     "pub:x": "npm run x && npm publish --access=public",
     "pub:y": "npm run y && npm publish --access=public",
-    "pub:z": "npm run z && npm publish --access=public"
+    "pub:z": "npm run z && npm publish --access=public",
+    "pub:beta": "npm publish --tag beta"
   },
   "lint-staged": {
     "src/**/*.(ts|js)": "npm run lint"
@@ -29,8 +30,15 @@
     "type": "git",
     "url": "git+https://github.com/zhuoooo/upload.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "plduoa",
+    "plduoa.js",
+    "file upload",
+    "html5 upload",
+    "javascript upload",
+    "upload"
+  ],
+  "author": "Zhuoooo",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/zhuoooo/upload/issues"

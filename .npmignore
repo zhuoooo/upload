@@ -1,0 +1,12 @@
+.husky/
+node_modules
+scripts/
+.babelrc.js
+.commitlintrc.js
+.eslintignore
+.eslintrc.js
+.gitignore
+.npmignore
+.versionrc
+package-lock.*
+tsconfig.json
