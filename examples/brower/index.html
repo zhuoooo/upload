@@ -10,6 +10,7 @@
     <div id="frame">
         <button type="button" id="select">选择文件</button>
         <button type="button" id="upload">上传文件</button>
+        
     </div>
     <script type="module">
         import Uploader from './upload.esm.js'
@@ -17,9 +18,33 @@
         let dom = document.querySelector('#select')
         window.upload = new Uploader({
             dom: dom,
-            url: 'http://localhost:8000/upload',
-            method: 'POST'
+            limit: 3,
+            multiple: true,
+            accept: '.zip',
+            action: 'http://localhost:8000/upload',
+            method: 'POST',
+            headers: {
+                test: 1
+            },
+            data: {
+                text: 1
+            }
         })
+
+        upload.on('filesSubmitted', (files) => {
+            let allFiles = document.querySelector('#list') || document.createElement('ul')
+            allFiles.innerHTML = ''
+            allFiles.id = 'list'
+            files.forEach(item => {
+                let fileDom = document.createElement('li')
+                fileDom.innerText = [item.filename, item.size, item.extension].join(', ')
+                allFiles.appendChild(fileDom)
+            })
+
+            document.querySelector('#frame').appendChild(allFiles)
+        })
+
+        
 
         document.querySelector('#upload').addEventListener('click', () => {
             upload.upload()

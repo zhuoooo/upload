@@ -6,7 +6,12 @@ type SafeElement = Element & HTMLDivElement & HTMLInputElement;
 export interface UploaderOptions {
     dom: SafeElement[]
     multiple: boolean
-    url: string
+
+    // https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/file#attr-accept
+    accept: string
+    action: string
+    name: string
+    limit: number
     withCredentials: boolean
     method: 'POST' | 'PUT' | 'OPTIONS'
     data: Record<string, any>
@@ -15,12 +20,15 @@ export interface UploaderOptions {
 }
 
 export default class Uploader extends UEvent {
-    private files: UploadFile[] = []
+    protected files: UploadFile[] = []
     private opts: UploaderOptions = {
         dom: [],
         multiple: false,
+        accept: '',
         withCredentials: false,
-        url: '/',
+        action: '/',
+        name: 'file',
+        limit: 1,
         method: 'POST',
         data: {},
         headers: {},
@@ -38,8 +46,8 @@ export default class Uploader extends UEvent {
         this.handleUploadDom(Array.isArray(opts.dom) ? opts.dom : [opts.dom])
     }
 
-    handleUploadDom (domNodes: SafeElement[]) {
-        const opts = this.opts
+    private handleUploadDom (domNodes: SafeElement[]) {
+        const { attributes, multiple, accept } = this.opts
         domNodes.forEach((node) => {
             let input: HTMLInputElement
             if (node.tagName.toLocaleLowerCase() === 'input' && node.type === 'file') {
@@ -64,11 +72,15 @@ export default class Uploader extends UEvent {
                 }, false)
             }
 
-            if (this.opts.multiple) {
-                input.setAttribute('multiple', 'multiple')
+            if (multiple) {
+                attributes.multiple = 'multiple'
             }
 
-            Object.entries(opts.attributes).forEach(([key, value]) => {
+            if (accept) {
+                attributes.accept = accept
+            }
+
+            Object.entries(attributes).forEach(([key, value]) => {
                 input.setAttribute(key, value)
             })
 
@@ -90,20 +102,32 @@ export default class Uploader extends UEvent {
     }
 
     // 将上传失败的文件重试
-    resume () {}
+    resume () {
+        this.emit('resume')
+        this.files.filter(item => item.status === 'error').forEach(item => item.resume())
+    }
+
+    abort () {
+        this.files.forEach(item => item.abort())
+    }
 
     // 取消全部文件的上传
     cancel () {
-        this.files.forEach(item => this.removeFile(item))
+        this.files.forEach(item => this.remove(item))
     }
 
     // 总进度
-    progress () {
-        this.emit('progress')
+    get progress () {
+        const { files } = this
+        return files.length
+            ? files.map(file => file.progress).reduce((total = 0, curr) => {
+                return total + curr
+            }) / files.length
+            : 0
     }
 
     // 获取总的文件大小，单位 b
-    getSize () {
+    get size () {
         return this.files.map(file => file.size).reduce((total = 0, curr) => {
             return total + curr
         })
@@ -125,30 +149,33 @@ export default class Uploader extends UEvent {
                 const fileID = this.genUniqueID(file)
                 const uploadFile = new UploadFile(file, fileID, opts)
 
-                uploadFile.on('progress', () => {
-                    this.progress()
+                ;['success', 'error', 'progress'].forEach(eventName => {
+                    uploadFile.on(eventName, (...args) => {
+                        this.emit(eventName, ...args)
+                    })
                 })
 
-                this.emit('fileAdded', file, event)
+                this.emit('fileAdded', uploadFile, event)
                 uploadFiles.push(uploadFile)
             }
         }
 
         uploadFiles.forEach(file => {
-            if (!opts.multiple && this.files.length > 0) {
-                this.removeFile(this.files[0])
+            const limit = opts.multiple ? opts.limit : 1
+            if (this.files.length >= limit) {
+                this.remove(this.files[0])
             }
 
             this.files.push(file)
         })
 
-        this.emit('filesSubmitted', files, event)
+        this.emit('filesSubmitted', this.files, event)
     }
 
-    removeFile (file: UploadFile) {
+    remove (file: UploadFile) {
         const fileIndex = this.files.findIndex(item => item === file)
         this.files.splice(fileIndex, 1)
-        file.abort(true)
+        file.abort()
         this.emit('fileRemoved', file)
     }
 

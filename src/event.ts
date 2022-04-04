@@ -32,6 +32,9 @@ export default class UEvent {
     emit (event: string, ...args) {
         const callbacks = this.events[event] ?? []
 
-        callbacks.forEach(cb => cb(args))
+        for (const cb of callbacks) {
+            // eslint-disable-next-line node/no-callback-literal
+            cb(...args)
+        }
     }
 }

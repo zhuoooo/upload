@@ -2,7 +2,7 @@
 import UEvent from './event'
 import { UploaderOptions } from './uploader'
 
-type FileOptions = Pick<UploaderOptions, 'url' | 'method' | 'headers' | 'data' | 'withCredentials'>
+type FileOptions = Pick<UploaderOptions, 'action' | 'method' | 'name' | 'headers' | 'data' | 'withCredentials'>
 
 type Status = 'success' | 'error' | 'uploading' | 'pending' | 'reading'
 export default class UploadFile extends UEvent {
@@ -66,6 +66,7 @@ export default class UploadFile extends UEvent {
                 return 'success'
             } else if (xhrStatus >= 400) {
                 // HTTP 413/415/500/501, permanent error
+                this.error = true
                 return 'error'
             } else {
                 // this should never happen, but we'll reset and queue a retry
@@ -81,12 +82,12 @@ export default class UploadFile extends UEvent {
     }
 
     get isComplete () {
-        return !['success', 'error', 'uploading', 'pending'].includes(this.status)
+        return !['uploading', 'pending'].includes(this.status)
     }
 
     get extension () {
         const name = this.filename
-        return name.substr((~-name.lastIndexOf('.') >>> 0) + 2).toLowerCase()
+        return name.slice((~-name.lastIndexOf('.') >>> 0) + 2).toLowerCase()
     }
 
     get size () {
@@ -97,11 +98,12 @@ export default class UploadFile extends UEvent {
         return this.raw.name
     }
 
-    private getPath () {
-        return this.raw.webkitRelativePath || this.raw.name
+    private bootstrap () {
+        this.abort()
+        this.error = false
     }
 
-    progressHandler (event: ProgressEvent<XMLHttpRequestEventTarget>) {
+    private progressHandler (event: ProgressEvent<XMLHttpRequestEventTarget>) {
         if (event.lengthComputable) {
             this.loaded = event.loaded
             this.total = event.total
@@ -110,7 +112,7 @@ export default class UploadFile extends UEvent {
         this.emit('progress', event)
     }
 
-    doneHandler (event: ProgressEvent<XMLHttpRequestEventTarget>) {
+    private doneHandler (event: ProgressEvent<XMLHttpRequestEventTarget>) {
         const status = this.status
 
         if (['success', 'error'].includes(status)) {
@@ -118,17 +120,9 @@ export default class UploadFile extends UEvent {
         }
     }
 
-    send () {
-        const xhr = new XMLHttpRequest()
-
-        const data = this.prepareXhrRequest(xhr)
-        xhr.send(data)
-        this.xhr = xhr
-    }
-
-    prepareXhrRequest (xhr) {
+    private prepareXhrRequest (xhr) {
         const options = this.opts
-        const { method, url, withCredentials, data } = options
+        const { method, action, name, withCredentials, data } = options
         const requestBody = new FormData()
 
         xhr.upload.addEventListener('progress', (e) => {
@@ -141,7 +135,9 @@ export default class UploadFile extends UEvent {
             this.doneHandler(e)
         }, false)
 
-        requestBody.append('file', this.raw, this.filename)
+        xhr.open(method.toUpperCase(), action, true)
+
+        requestBody.append(name, this.raw, this.filename)
         Object.entries(data).forEach(([key, value]) => {
             (requestBody as FormData).append(key, value)
         })
@@ -151,19 +147,26 @@ export default class UploadFile extends UEvent {
         })
 
         xhr.withCredentials = withCredentials
-        xhr.open(method.toUpperCase(), url, true)
         return requestBody
     }
 
-    resume () {
+    send () {
+        const xhr = new XMLHttpRequest()
 
+        const data = this.prepareXhrRequest(xhr)
+        xhr.send(data)
+        this.xhr = xhr
     }
 
-    abort (reset = false) {
+    resume () {
+        this.error = false
+        this.retries = 0
+        this.send()
+    }
+
+    abort () {
         const xhr = this.xhr
-        if (reset) {
-            this.xhr = null
-        }
+        this.xhr = null
         xhr?.abort()
     }
 
@@ -173,10 +176,5 @@ export default class UploadFile extends UEvent {
 
     retry () {
 
-    }
-
-    bootstrap () {
-        this.abort(true)
-        this.error = false
     }
 }
