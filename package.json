@@ -1,10 +1,10 @@
 {
-  "name": "upload",
+  "name": "plduoa",
   "version": "0.0.1",
   "description": "一个支持esm的上传库",
-  "main": "index.js",
-  "module": "dist/index.esm.js",
-  "types": "dist/index.d.ts",
+  "main": "upload.js",
+  "module": "dist/upload.esm.js",
+  "types": "dist/upload.d.ts",
   "scripts": {
     "dev": "rollup -w --environment NODE_ENV:development -c scripts/rollup.config.dev.js",
     "build": "rollup --environment NODE_ENV:production -c scripts/rollup.config.prod.js",
