@@ -139,7 +139,7 @@ export default class UploadFile extends UEvent {
 
         requestBody.append(name, this.raw, this.filename)
         Object.entries(data).forEach(([key, value]) => {
-            (requestBody as FormData).append(key, value)
+            requestBody.append(key, value)
         })
 
         Object.entries(options.headers).forEach(([header, value]) => {

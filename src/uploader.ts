@@ -1,7 +1,7 @@
 import UEvent from './event'
 import UploadFile from './file'
 
-type SafeElement = Element & HTMLDivElement & HTMLInputElement;
+type SafeElement = HTMLElement;
 
 export interface UploaderOptions {
     dom: SafeElement[]
@@ -35,7 +35,7 @@ export default class Uploader extends UEvent {
         attributes: {}
     }
 
-    constructor (options: Partial<UploaderOptions>) {
+    constructor (options: Partial<UploaderOptions> = {}) {
         super()
         const opts = {
             ...this.opts,
@@ -50,8 +50,8 @@ export default class Uploader extends UEvent {
         const { attributes, multiple, accept } = this.opts
         domNodes.forEach((node) => {
             let input: HTMLInputElement
-            if (node.tagName.toLocaleLowerCase() === 'input' && node.type === 'file') {
-                input = node
+            if (node.tagName.toLocaleLowerCase() === 'input' && (node as HTMLInputElement).type === 'file') {
+                input = node as HTMLInputElement
             } else {
                 input = document.createElement('input')
                 input.setAttribute('type', 'file')
@@ -128,19 +128,20 @@ export default class Uploader extends UEvent {
 
     // 获取总的文件大小，单位 b
     get size () {
-        return this.files.map(file => file.size).reduce((total = 0, curr) => {
-            return total + curr
-        })
+        const { files } = this
+        return files.length
+            ? files.map(file => file.size).reduce((total = 0, curr) => {
+                return total + curr
+            })
+            : 0
     }
 
     // 添加一个文件
-    addFile (file: File, event: Event) {
-        const fileList = new FileList()
-        fileList[0] = file
-        this.addFiles(fileList, event)
+    addFile (file: File, event?: Event) {
+        this.addFiles([file], event)
     }
 
-    addFiles (files: FileList, event: Event) {
+    addFiles (files: FileList|File[], event?: Event) {
         const opts = this.opts
         const uploadFiles: UploadFile[] = []
         for (let i = 0; i < files.length; ++i) {
