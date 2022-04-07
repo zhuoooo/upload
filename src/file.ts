@@ -166,8 +166,8 @@ export default class UploadFile extends UEvent {
 
     abort () {
         const xhr = this.xhr
-        this.xhr = null
         xhr?.abort()
+        this.xhr = null
     }
 
     cancel () {

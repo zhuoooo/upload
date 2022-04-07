@@ -1,13 +1,15 @@
 import Uploader from '../src/uploader'
 import sinon from 'sinon'
+import { FakeXhr } from './xhr'
 
-let xhr, requests
+let xhr
+let requests: FakeXhr[]
 
 beforeEach(function () {
     xhr = sinon.useFakeXMLHttpRequest()
 
     requests = []
-    xhr.onCreate = function (req) {
+    xhr.onCreate = function (req: FakeXhr) {
         requests.push(req)
     }
 })
@@ -50,15 +52,44 @@ describe('添加单文件场景', () => {
         upload.on('success', (e) => {
             expect(e).toBe('OK')
         })
-        upload.on('error', (e) => {
-            expect(!!e).toBeTruthy()
+        upload.on('progress', (e) => {
+            if (e.lengthComputable) {
+                expect(e.loaded).toBeGreaterThanOrEqual(0)
+                expect(e.total).toBeGreaterThanOrEqual(1)
+            }
         })
 
-        requests[0].respond(
-            200,
-            { 'Content-Type': 'application/json' },
-            'OK'
-        )
+        requests.forEach((item: FakeXhr) => {
+            item.upload.eventListeners.progress.forEach(item => {
+                item.listener({
+                    lengthComputable: true,
+                    loaded: 100,
+                    total: 200
+                })
+            })
+            const formData = item.requestBody
+            expect(formData.has('file')).toBeTruthy()
+            expect(item.url).not.toBe('/')
+            expect(item.method).not.toBe('GET')
+
+            item.respond(
+                200,
+                { 'Content-Type': 'application/json' },
+                'OK'
+            )
+        })
+    })
+
+    upload.off()
+
+    it('中途取消文件上传', () => {
+        const mockFn = jest.fn()
+        upload.on('uploadStart', mockFn)
+        upload.upload()
+
+        expect(mockFn.mock.calls.length).toBe(1)
+        upload.abort()
+        expect(requests.every(item => item.aborted)).toBeTruthy()
     })
 })
 
@@ -66,13 +97,12 @@ describe('添加多文件场景', () => {
     const fileLimit = 2
     const upload = new Uploader({
         dom: [document.createElement('button')],
+        action: 'mutli-upload',
         multiple: true,
         limit: fileLimit
     })
 
     const files = [new File(['12345'], 'test.txt'), new File(['123457'], 'test.txt'), new File(['12345'], 'test.txt')]
-
-    upload.addFiles(files)
 
     it('文件数量限制', () => {
         const filesEventCb = (uploadFiles) => {
@@ -80,5 +110,37 @@ describe('添加多文件场景', () => {
             expect(uploadFiles.length).not.toBe(files.length)
         }
         upload.on('filesSubmitted', filesEventCb)
+    })
+
+    upload.addFiles(files)
+
+    it('上传场景', () => {
+        upload.upload()
+
+        upload.on('success', (e) => {
+            expect(e).toBe('OK')
+        })
+
+        expect(requests.length).toBe(fileLimit)
+
+        requests.forEach((item: FakeXhr) => {
+            item.upload.eventListeners.progress.forEach(item => {
+                item.listener({
+                    lengthComputable: true,
+                    loaded: 100,
+                    total: 200
+                })
+            })
+            const formData = item.requestBody
+            expect(formData.has('file')).toBeTruthy()
+            expect(item.url).not.toBe('/')
+            expect(item.method).not.toBe('GET')
+
+            item.respond(
+                200,
+                { 'Content-Type': 'application/json' },
+                'OK'
+            )
+        })
     })
 })
