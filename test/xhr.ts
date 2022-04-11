@@ -9,6 +9,7 @@ export interface FakeXhr {
     url: string
     method: string
     requestBody: FormData
+    requestHeaders: Record<string, string>
     upload: {
         eventListeners: UploadEventListeners
     }

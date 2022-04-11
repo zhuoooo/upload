@@ -21,7 +21,13 @@ afterEach(function () {
 describe('添加单文件场景', () => {
     const upload = new Uploader({
         dom: [document.createElement('button')],
-        action: '/upload'
+        action: '/upload',
+        data: {
+            test: 'upload'
+        },
+        headers: {
+            Test: 'upload'
+        }
     })
 
     const file = new File(['12345'], 'test.txt')
@@ -68,7 +74,10 @@ describe('添加单文件场景', () => {
                 })
             })
             const formData = item.requestBody
+            const headers = item.requestHeaders
             expect(formData.has('file')).toBeTruthy()
+            expect(formData.has('test')).toBeTruthy()
+            expect(headers.Test).toBe('upload')
             expect(item.url).not.toBe('/')
             expect(item.method).not.toBe('GET')
 
@@ -90,6 +99,38 @@ describe('添加单文件场景', () => {
         expect(mockFn.mock.calls.length).toBe(1)
         upload.abort()
         expect(requests.every(item => item.aborted)).toBeTruthy()
+    })
+
+    it('文件上传失败，重试上传', () => {
+        const mockFn = jest.fn()
+        upload.on('resume', mockFn)
+        upload.on('success', (e) => {
+            expect(e).toBe('OK')
+        })
+        upload.on('error', (e) => {
+            expect(e).toBe('error')
+        })
+        upload.upload()
+
+        requests.forEach((item: FakeXhr) => {
+            item.respond(
+                500,
+                { 'Content-Type': 'application/json' },
+                'error'
+            )
+        })
+        requests = []
+
+        upload.resume()
+        expect(mockFn.mock.calls.length).toBe(1)
+
+        requests.forEach((item: FakeXhr) => {
+            item.respond(
+                200,
+                { 'Content-Type': 'application/json' },
+                'OK'
+            )
+        })
     })
 })
 

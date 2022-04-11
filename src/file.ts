@@ -169,12 +169,4 @@ export default class UploadFile extends UEvent {
         xhr?.abort()
         this.xhr = null
     }
-
-    cancel () {
-        this.abort()
-    }
-
-    retry () {
-
-    }
 }
